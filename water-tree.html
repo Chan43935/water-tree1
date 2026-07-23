@@ -1,0 +1,1828 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>💧 每日飲水追蹤</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    :root {
+      --primary: #2d6a4f;
+      --primary-light: #52b788;
+      --primary-dark: #1b4332;
+      --accent: #74c69d;
+      --earth: #8b7355;
+      --earth-light: #a0886a;
+      --sky-day: linear-gradient(180deg, #87ceeb 0%, #e0f4ff 100%);
+      --sky-night: linear-gradient(180deg, #0d1b2a 0%, #1b263b 100%);
+      --sun: #ffd93d;
+      --moon: #f5f5f5;
+      --grass: #4a7c23;
+      --grass-dark: #3d6b1f;
+      --text-day: #1a1a2e;
+      --text-night: #e8e8e8;
+      --card-bg-day: rgba(255, 255, 255, 0.9);
+      --card-bg-night: rgba(30, 30, 50, 0.85);
+      --shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+      --radius: 16px;
+      --spacing-xs: 0.5rem;
+      --spacing-sm: 0.75rem;
+      --spacing-md: 1rem;
+      --spacing-lg: 1.5rem;
+      --spacing-xl: 2rem;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft JhengHei', 'PingFang TC', sans-serif;
+      overflow-x: hidden;
+    }
+
+    body {
+      background: var(--sky-day);
+      transition: background 1s ease;
+      color: var(--text-day);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    body.night {
+      background: var(--sky-night);
+      color: var(--text-night);
+    }
+
+    .app-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      max-width: 480px;
+      margin: 0 auto;
+      width: 100%;
+      padding: var(--spacing-md);
+      gap: var(--spacing-md);
+    }
+
+    /* Header Card */
+    .header-card {
+      background: var(--card-bg-day);
+      backdrop-filter: blur(10px);
+      border-radius: var(--radius);
+      padding: var(--spacing-lg);
+      box-shadow: var(--shadow);
+      transition: background 0.5s ease, color 0.5s ease;
+    }
+
+    body.night .header-card {
+      background: var(--card-bg-night);
+    }
+
+    .header-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: var(--spacing-sm);
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-xs);
+    }
+
+    .water-display {
+      display: flex;
+      align-items: baseline;
+      gap: var(--spacing-xs);
+      margin-bottom: var(--spacing-sm);
+    }
+
+    .water-amount {
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: var(--primary);
+      line-height: 1;
+    }
+
+    .water-unit {
+      font-size: 1rem;
+      color: var(--primary-light);
+      font-weight: 500;
+    }
+
+    .water-goal {
+      font-size: 0.9rem;
+      color: var(--text-day);
+      opacity: 0.7;
+    }
+
+    body.night .water-goal {
+      color: var(--text-night);
+    }
+
+    /* Progress Bar */
+    .progress-container {
+      background: rgba(0, 0, 0, 0.1);
+      border-radius: 10px;
+      height: 20px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary-light), var(--accent));
+      border-radius: 10px;
+      transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .progress-bar::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.3),
+        transparent
+      );
+      animation: shimmer 2s infinite;
+    }
+
+    @keyframes shimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+
+    .progress-text {
+      text-align: center;
+      font-size: 0.85rem;
+      margin-top: var(--spacing-xs);
+      font-weight: 600;
+      color: var(--primary-dark);
+    }
+
+    /* Tree Canvas Area */
+    .tree-container {
+      background: var(--card-bg-day);
+      backdrop-filter: blur(10px);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      position: relative;
+      transition: background 0.5s ease;
+    }
+
+    body.night .tree-container {
+      background: var(--card-bg-night);
+    }
+
+    #treeCanvas {
+      width: 100%;
+      height: 300px;
+      display: block;
+    }
+
+    /* Quick Add Buttons */
+    .quick-add {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: var(--spacing-sm);
+    }
+
+    .quick-btn {
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      padding: var(--spacing-md) var(--spacing-sm);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      min-height: 56px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      box-shadow: 0 2px 8px rgba(45, 106, 79, 0.3);
+    }
+
+    .quick-btn:hover {
+      background: var(--primary-light);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(45, 106, 79, 0.4);
+    }
+
+    .quick-btn:active {
+      transform: translateY(0);
+    }
+
+    .quick-btn.custom {
+      background: var(--earth);
+      box-shadow: 0 2px 8px rgba(139, 115, 85, 0.3);
+    }
+
+    .quick-btn.custom:hover {
+      background: var(--earth-light);
+    }
+
+    .quick-btn .icon {
+      font-size: 1.3rem;
+    }
+
+    /* Sections */
+    .section {
+      background: var(--card-bg-day);
+      backdrop-filter: blur(10px);
+      border-radius: var(--radius);
+      padding: var(--spacing-lg);
+      box-shadow: var(--shadow);
+      transition: background 0.5s ease, color 0.5s ease;
+    }
+
+    body.night .section {
+      background: var(--card-bg-night);
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--spacing-md);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .section-title {
+      font-size: 1rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-xs);
+    }
+
+    .section-toggle {
+      font-size: 1.2rem;
+      transition: transform 0.3s ease;
+    }
+
+    .section-toggle.open {
+      transform: rotate(180deg);
+    }
+
+    /* Today's Records */
+    .records-list {
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .record-item {
+      display: flex;
+      justify-content: space-between;
+      padding: var(--spacing-sm) 0;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+      animation: slideIn 0.3s ease;
+    }
+
+    body.night .record-item {
+      border-bottom-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .record-item:last-child {
+      border-bottom: none;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateX(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    .record-time {
+      font-weight: 500;
+      opacity: 0.8;
+    }
+
+    .record-amount {
+      font-weight: 600;
+      color: var(--primary-light);
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: var(--spacing-lg);
+      opacity: 0.6;
+      font-size: 0.9rem;
+    }
+
+    /* 7-Day Stats */
+    .stats-container {
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .stats-container.open {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .streak-display {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      margin-bottom: var(--spacing-md);
+      padding: var(--spacing-sm);
+      background: rgba(82, 183, 136, 0.15);
+      border-radius: 8px;
+    }
+
+    .streak-icon {
+      font-size: 1.5rem;
+    }
+
+    .streak-text {
+      font-weight: 600;
+      color: var(--primary-dark);
+    }
+
+    .days-chart {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      height: 100px;
+      gap: var(--spacing-xs);
+    }
+
+    .day-bar {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .bar {
+      width: 100%;
+      max-width: 32px;
+      border-radius: 4px 4px 0 0;
+      transition: height 0.5s ease, background 0.3s ease;
+      position: relative;
+    }
+
+    .bar.achieved {
+      background: linear-gradient(180deg, var(--primary-light), var(--primary));
+    }
+
+    .bar.missed {
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    .bar-label {
+      font-size: 0.7rem;
+      opacity: 0.7;
+    }
+
+    .bar-value {
+      font-size: 0.65rem;
+      opacity: 0.6;
+      margin-bottom: 2px;
+    }
+
+    /* Settings */
+    .settings-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: var(--spacing-sm) 0;
+    }
+
+    .settings-label {
+      font-weight: 500;
+    }
+
+    .goal-select {
+      padding: var(--spacing-sm) var(--spacing-md);
+      border: 2px solid var(--primary-light);
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      background: white;
+      color: var(--primary-dark);
+      cursor: pointer;
+    }
+
+    .reset-btn {
+      background: #e63946;
+      color: white;
+      border: none;
+      padding: var(--spacing-sm) var(--spacing-md);
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .reset-btn:hover {
+      background: #d62839;
+    }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s ease;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .modal {
+      background: white;
+      border-radius: var(--radius);
+      padding: var(--spacing-xl);
+      max-width: 320px;
+      width: 90%;
+      transform: scale(0.9);
+      transition: transform 0.3s ease;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    }
+
+    .modal-overlay.active .modal {
+      transform: scale(1);
+    }
+
+    .modal-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-bottom: var(--spacing-md);
+      text-align: center;
+    }
+
+    .modal-input {
+      width: 100%;
+      padding: var(--spacing-md);
+      border: 2px solid var(--primary-light);
+      border-radius: 8px;
+      font-size: 1.2rem;
+      text-align: center;
+      margin-bottom: var(--spacing-md);
+      font-weight: 600;
+    }
+
+    .modal-buttons {
+      display: flex;
+      gap: var(--spacing-sm);
+    }
+
+    .modal-btn {
+      flex: 1;
+      padding: var(--spacing-md);
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .modal-btn.cancel {
+      background: #f0f0f0;
+      color: #666;
+    }
+
+    .modal-btn.confirm {
+      background: var(--primary);
+      color: white;
+    }
+
+    .modal-btn:hover {
+      opacity: 0.9;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 100px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: var(--primary-dark);
+      color: white;
+      padding: var(--spacing-md) var(--spacing-lg);
+      border-radius: 50px;
+      font-weight: 600;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      z-index: 1001;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s ease;
+      white-space: nowrap;
+    }
+
+    .toast.active {
+      opacity: 1;
+      visibility: visible;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* Bloom Celebration */
+    .bloom-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      pointer-events: none;
+      z-index: 999;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 360px) {
+      .quick-add {
+        grid-template-columns: repeat(3, 1fr);
+      }
+      
+      .water-amount {
+        font-size: 2rem;
+      }
+    }
+
+    @media (min-width: 481px) {
+      .app-container {
+        padding: var(--spacing-lg);
+      }
+      
+      #treeCanvas {
+        height: 350px;
+      }
+    }
+
+    /* Scrollbar styling */
+    .records-list::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .records-list::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.05);
+      border-radius: 3px;
+    }
+
+    .records-list::-webkit-scrollbar-thumb {
+      background: var(--primary-light);
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header Card -->
+    <div class="header-card">
+      <div class="header-title">💧 今日飲水量</div>
+      <div class="water-display">
+        <span class="water-amount" id="waterAmount">0</span>
+        <span class="water-unit">/ <span id="goalDisplay">2000</span> ml</span>
+      </div>
+      <div class="progress-container">
+        <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+      </div>
+      <div class="progress-text" id="progressText">0%</div>
+    </div>
+
+    <!-- Tree Canvas -->
+    <div class="tree-container">
+      <canvas id="treeCanvas"></canvas>
+    </div>
+
+    <!-- Quick Add Buttons -->
+    <div class="quick-add">
+      <button class="quick-btn" onclick="addWater(100)">
+        <span class="icon">💧</span>
+        <span>100ml</span>
+      </button>
+      <button class="quick-btn" onclick="addWater(250)">
+        <span class="icon">💧</span>
+        <span>250ml</span>
+      </button>
+      <button class="quick-btn" onclick="addWater(500)">
+        <span class="icon">🥤</span>
+        <span>500ml</span>
+      </button>
+      <button class="quick-btn" onclick="addWater(750)">
+        <span class="icon">🫗</span>
+        <span>750ml</span>
+      </button>
+      <button class="quick-btn custom" onclick="showCustomModal()">
+        <span class="icon">⚙️</span>
+        <span>自訂</span>
+      </button>
+    </div>
+
+    <!-- Today's Records -->
+    <div class="section">
+      <div class="section-header" onclick="toggleSection('records')">
+        <div class="section-title">📋 今日紀錄</div>
+        <div class="section-toggle" id="recordsToggle">▼</div>
+      </div>
+      <div class="records-list" id="recordsList">
+        <div class="empty-state">今天還沒有飲水紀錄</div>
+      </div>
+    </div>
+
+    <!-- 7-Day Stats -->
+    <div class="section">
+      <div class="section-header" onclick="toggleSection('stats')">
+        <div class="section-title">📊 近 7 天統計</div>
+        <div class="section-toggle" id="statsToggle">▼</div>
+      </div>
+      <div class="stats-container" id="statsContainer">
+        <div class="streak-display">
+          <span class="streak-icon">🔥</span>
+          <span class="streak-text">連續達成 <span id="streakCount">0</span> 天</span>
+        </div>
+        <div class="days-chart" id="daysChart"></div>
+      </div>
+    </div>
+
+    <!-- Settings -->
+    <div class="section">
+      <div class="section-header" onclick="toggleSection('settings')">
+        <div class="section-title">⚙️ 設定</div>
+        <div class="section-toggle" id="settingsToggle">▼</div>
+      </div>
+      <div class="stats-container" id="settingsContainer">
+        <div class="settings-row">
+          <span class="settings-label">每日目標</span>
+          <select class="goal-select" id="goalSelect" onchange="updateGoal()">
+            <!-- Options generated by JS -->
+          </select>
+        </div>
+        <div class="settings-row">
+          <span class="settings-label">重置今日資料</span>
+          <button class="reset-btn" onclick="showResetConfirm()">重置</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Amount Modal -->
+  <div class="modal-overlay" id="customModal">
+    <div class="modal">
+      <div class="modal-title">輸入飲水量</div>
+      <input type="number" class="modal-input" id="customAmount" placeholder="ml" value="500">
+      <div class="modal-buttons">
+        <button class="modal-btn cancel" onclick="closeModal('customModal')">取消</button>
+        <button class="modal-btn confirm" onclick="confirmCustomAmount()">確定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reset Confirmation Modal -->
+  <div class="modal-overlay" id="resetModal">
+    <div class="modal">
+      <div class="modal-title">確定要重置今日資料嗎？</div>
+      <p style="text-align: center; margin-bottom: 1rem; opacity: 0.7;">此操作無法復原</p>
+      <div class="modal-buttons">
+        <button class="modal-btn cancel" onclick="closeModal('resetModal')">取消</button>
+        <button class="modal-btn confirm" onclick="confirmReset()" style="background: #e63946;">重置</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bloom Canvas Overlay -->
+  <canvas class="bloom-overlay" id="bloomCanvas"></canvas>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // ==================== STATE MANAGEMENT ====================
+    const STORAGE_KEY = 'waterTreeData';
+    const HISTORY_KEY = 'waterTreeHistory';
+
+    let appState = {
+      today: new Date().toDateString(),
+      waterIntake: 0,
+      goal: 2000,
+      records: [],
+      history: [],
+      streak: 0
+    };
+
+    // ==================== INITIALIZATION ====================
+    function init() {
+      loadData();
+      checkDailyReset();
+      setupCanvas();
+      setupGoalSelect();
+      updateUI();
+      updateDayNight();
+      startAnimation();
+      setupResizeHandler();
+    }
+
+    function loadData() {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        appState = { ...appState, ...parsed };
+      }
+
+      const historySaved = localStorage.getItem(HISTORY_KEY);
+      if (historySaved) {
+        appState.history = JSON.parse(historySaved);
+      }
+
+      // Recalculate streak
+      calculateStreak();
+    }
+
+    function saveData() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        today: appState.today,
+        waterIntake: appState.waterIntake,
+        goal: appState.goal,
+        records: appState.records,
+        streak: appState.streak
+      }));
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(appState.history));
+    }
+
+    function checkDailyReset() {
+      const today = new Date().toDateString();
+      if (appState.today !== today) {
+        // Save yesterday's data to history
+        if (appState.waterIntake > 0) {
+          appState.history.push({
+            date: appState.today,
+            amount: appState.waterIntake,
+            goal: appState.goal,
+            achieved: appState.waterIntake >= appState.goal
+          });
+          // Keep only last 30 days
+          if (appState.history.length > 30) {
+            appState.history = appState.history.slice(-30);
+          }
+        }
+
+        // Check if goal was achieved yesterday for streak
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toDateString();
+        const yesterdayData = appState.history.find(h => h.date === yesterdayStr);
+
+        if (yesterdayData && yesterdayData.achieved) {
+          // Streak continues
+        } else {
+          appState.streak = 0;
+        }
+
+        // Reset for new day
+        appState.today = today;
+        appState.waterIntake = 0;
+        appState.records = [];
+        treeState.growth = 0;
+        treeState.targetGrowth = 0;
+        treeState.particles = [];
+        treeState.leaves = [];
+        treeState.flowers = [];
+
+        saveData();
+        showToast('新的一天，從小苗開始！🌱');
+      }
+    }
+
+    function calculateStreak() {
+      let streak = 0;
+      const today = new Date();
+
+      for (let i = 0; i < 365; i++) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+        const dateStr = date.toDateString();
+
+        if (i === 0) {
+          // Today - check if goal achieved
+          if (appState.waterIntake >= appState.goal) {
+            streak++;
+          } else {
+            break;
+          }
+        } else {
+          // Past days - check history
+          const dayData = appState.history.find(h => h.date === dateStr);
+          if (dayData && dayData.achieved) {
+            streak++;
+          } else if (i === 1 && !dayData) {
+            // Yesterday might not be in history yet if app wasn't opened
+            continue;
+          } else {
+            break;
+          }
+        }
+      }
+
+      appState.streak = streak;
+    }
+
+    // ==================== WATER INTAKE ====================
+    function addWater(amount) {
+      appState.waterIntake += amount;
+      appState.records.push({
+        time: new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }),
+        amount: amount
+      });
+
+      // Check if goal just achieved
+      const wasBelowGoal = appState.waterIntake - amount < appState.goal;
+      const isAtOrAboveGoal = appState.waterIntake >= appState.goal;
+
+      saveData();
+      updateUI();
+      triggerWaterEffect();
+
+      if (wasBelowGoal && isAtOrAboveGoal) {
+        celebrateBloom();
+        showToast('🎉 恭喜達成今日目標！');
+      } else {
+        showToast(`+${amount}ml 已記錄`);
+      }
+    }
+
+    function showCustomModal() {
+      document.getElementById('customModal').classList.add('active');
+      document.getElementById('customAmount').focus();
+    }
+
+    function closeModal(modalId) {
+      document.getElementById(modalId).classList.remove('active');
+    }
+
+    function confirmCustomAmount() {
+      const amount = parseInt(document.getElementById('customAmount').value);
+      if (amount && amount > 0 && amount <= 2000) {
+        addWater(amount);
+        closeModal('customModal');
+        document.getElementById('customAmount').value = '500';
+      } else {
+        showToast('請輸入 1-2000ml 的數字');
+      }
+    }
+
+    function showResetConfirm() {
+      document.getElementById('resetModal').classList.add('active');
+    }
+
+    function confirmReset() {
+      appState.waterIntake = 0;
+      appState.records = [];
+      treeState.growth = 0;
+      treeState.targetGrowth = 0;
+      treeState.particles = [];
+      treeState.leaves = [];
+      treeState.flowers = [];
+      saveData();
+      updateUI();
+      closeModal('resetModal');
+      showToast('🌱 今日資料已重置，樹苗重新開始！');
+    }
+
+    // ==================== UI UPDATES ====================
+    function updateUI() {
+      // Water display
+      document.getElementById('waterAmount').textContent = appState.waterIntake;
+      document.getElementById('goalDisplay').textContent = appState.goal;
+
+      // Progress bar
+      const percentage = Math.min(100, Math.round((appState.waterIntake / appState.goal) * 100));
+      document.getElementById('progressBar').style.width = percentage + '%';
+      document.getElementById('progressText').textContent = percentage + '%';
+
+      // Records
+      updateRecords();
+
+      // Stats
+      updateStats();
+
+      // Tree growth
+      updateTreeGrowth();
+    }
+
+    function updateRecords() {
+      const container = document.getElementById('recordsList');
+      if (appState.records.length === 0) {
+        container.innerHTML = '<div class="empty-state">今天還沒有飲水紀錄</div>';
+        return;
+      }
+
+      container.innerHTML = appState.records
+        .slice()
+        .reverse()
+        .map(r => `
+          <div class="record-item">
+            <span class="record-time">${r.time}</span>
+            <span class="record-amount">+${r.amount}ml</span>
+          </div>
+        `).join('');
+    }
+
+    function updateStats() {
+      document.getElementById('streakCount').textContent = appState.streak;
+
+      const chart = document.getElementById('daysChart');
+      const days = [];
+
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dateStr = date.toDateString();
+        const dayName = date.toLocaleDateString('zh-TW', { weekday: 'short' });
+
+        let dayData;
+        if (i === 0) {
+          // Today
+          dayData = {
+            amount: appState.waterIntake,
+            achieved: appState.waterIntake >= appState.goal
+          };
+        } else {
+          dayData = appState.history.find(h => h.date === dateStr) || { amount: 0, achieved: false };
+        }
+
+        days.push({
+          name: dayName,
+          amount: dayData.amount,
+          achieved: dayData.achieved
+        });
+      }
+
+      const maxAmount = Math.max(appState.goal, ...days.map(d => d.amount), 1);
+
+      chart.innerHTML = days.map(d => {
+        const height = Math.round((d.amount / maxAmount) * 80);
+        return `
+          <div class="day-bar">
+            <span class="bar-value">${d.amount > 0 ? d.amount : ''}</span>
+            <div class="bar ${d.achieved ? 'achieved' : 'missed'}" style="height: ${Math.max(height, 4)}px"></div>
+            <span class="bar-label">${d.name}</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function setupGoalSelect() {
+      const select = document.getElementById('goalSelect');
+      const options = [];
+      for (let i = 1000; i <= 5000; i += 250) {
+        options.push(`<option value="${i}" ${i === appState.goal ? 'selected' : ''}>${i}ml</option>`);
+      }
+      select.innerHTML = options.join('');
+    }
+
+    function updateGoal() {
+      appState.goal = parseInt(document.getElementById('goalSelect').value);
+      saveData();
+      updateUI();
+      showToast(`每日目標設為 ${appState.goal}ml`);
+    }
+
+    function toggleSection(section) {
+      const container = document.getElementById(`${section}Container`);
+      const toggle = document.getElementById(`${section}Toggle`);
+      const isOpen = container.classList.contains('open');
+
+      // Close all sections first
+      document.querySelectorAll('.stats-container').forEach(el => el.classList.remove('open'));
+      document.querySelectorAll('.section-toggle').forEach(el => el.classList.remove('open'));
+
+      if (!isOpen) {
+        container.classList.add('open');
+        toggle.classList.add('open');
+      }
+    }
+
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.classList.add('active');
+      setTimeout(() => toast.classList.remove('active'), 2000);
+    }
+
+    function updateDayNight() {
+      const hour = new Date().getHours();
+      const isNight = hour < 6 || hour >= 18;
+      document.body.classList.toggle('night', isNight);
+    }
+
+    // ==================== CANVAS TREE ====================
+    let canvas, ctx;
+    let treeState = {
+      growth: 0, // 0 to 1
+      targetGrowth: 0,
+      swayOffset: 0,
+      leaves: [],
+      flowers: [],
+      particles: []
+    };
+
+    function setupCanvas() {
+      canvas = document.getElementById('treeCanvas');
+      ctx = canvas.getContext('2d');
+      resizeCanvas();
+    }
+
+    function resizeCanvas() {
+      const rect = canvas.parentElement.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = 300 * dpr;
+      ctx.scale(dpr, dpr);
+      canvas.style.width = rect.width + 'px';
+      canvas.style.height = '300px';
+    }
+
+    function setupResizeHandler() {
+      window.addEventListener('resize', () => {
+        resizeCanvas();
+        initLeaves();
+      });
+    }
+
+    function updateTreeGrowth() {
+      const percentage = Math.min(100, (appState.waterIntake / appState.goal) * 100);
+      treeState.targetGrowth = percentage / 100;
+
+      // Initialize leaves if needed
+      if (treeState.leaves.length === 0 && treeState.growth > 0.2) {
+        initLeaves();
+      }
+    }
+
+    function initLeaves() {
+      treeState.leaves = [];
+      const count = Math.floor(20 + treeState.growth * 30);
+      for (let i = 0; i < count; i++) {
+        treeState.leaves.push({
+          x: (Math.random() - 0.5) * 100,
+          y: -Math.random() * 80,
+          size: 3 + Math.random() * 5,
+          speed: 0.5 + Math.random() * 0.5,
+          sway: Math.random() * Math.PI * 2
+        });
+      }
+    }
+
+    function triggerWaterEffect() {
+      // Add water droplet particles
+      for (let i = 0; i < 15; i++) {
+        treeState.particles.push({
+          x: canvas.width / (window.devicePixelRatio || 1) * 0.5 + (Math.random() - 0.5) * 100,
+          y: 50,
+          vx: (Math.random() - 0.5) * 2,
+          vy: 2 + Math.random() * 3,
+          life: 1,
+          type: 'water'
+        });
+      }
+    }
+
+    function celebrateBloom() {
+      // Create flower particles
+      const colors = ['#ff6b6b', '#ffd93d', '#ff85a2', '#c4a7ff', '#74c69d'];
+      for (let i = 0; i < 50; i++) {
+        treeState.particles.push({
+          x: canvas.width / (window.devicePixelRatio || 1) * 0.5,
+          y: 100,
+          vx: (Math.random() - 0.5) * 8,
+          vy: -3 - Math.random() * 3,
+          life: 1,
+          decay: 0.01 + Math.random() * 0.01,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          size: 4 + Math.random() * 4,
+          type: 'flower',
+          rotation: Math.random() * Math.PI * 2,
+          rotationSpeed: (Math.random() - 0.5) * 0.1
+        });
+      }
+    }
+
+    function drawTree() {
+      const width = canvas.width / (window.devicePixelRatio || 1);
+      const height = canvas.height / (window.devicePixelRatio || 1);
+      const groundY = height - 30;
+
+      ctx.clearRect(0, 0, width, height);
+
+      // Smooth growth transition — snap to target when close enough
+      const diff = treeState.targetGrowth - treeState.growth;
+      if (Math.abs(diff) < 0.005) {
+        treeState.growth = treeState.targetGrowth;
+      } else {
+        treeState.growth += diff * 0.05;
+      }
+
+      // Sway animation — for tree branch sway
+      treeState.swayOffset += 0.02;
+      const sway = Math.sin(treeState.swayOffset) * 0.3;
+
+      // Fast spin time — for leaf/flower pinwheel rotation (independent of sway)
+      treeState.spinTime = (treeState.spinTime || 0) + 0.08;
+      const spinTime = treeState.spinTime;
+
+      const centerX = width / 2;
+
+      // Draw ground
+      ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--grass');
+      ctx.beginPath();
+      ctx.ellipse(centerX, groundY + 10, width * 0.6, 30, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--grass-dark');
+      ctx.beginPath();
+      ctx.ellipse(centerX, groundY + 15, width * 0.5, 20, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Growth stages — bloom ONLY at 100% (growth >= 1.0)
+      if (treeState.growth < 0.05) {
+        // Seed
+        drawSeed(centerX, groundY - 5);
+      } else if (treeState.growth < 0.2) {
+        // Sprout
+        drawSprout(centerX, groundY, treeState.growth / 0.2, sway, spinTime);
+      } else if (treeState.growth < 0.4) {
+        // Small plant
+        drawSmallPlant(centerX, groundY, treeState.growth / 0.4, sway, spinTime);
+      } else if (treeState.growth < 0.7) {
+        // Young tree
+        drawYoungTree(centerX, groundY, (treeState.growth - 0.4) / 0.3, sway, spinTime);
+      } else if (treeState.growth < 1.0) {
+        // Mature tree (no flowers yet)
+        drawMatureTree(centerX, groundY, (treeState.growth - 0.7) / 0.3, sway, spinTime);
+      } else {
+        // Blooming tree — ONLY when goal is 100% reached
+        drawBloomingTree(centerX, groundY, sway, spinTime);
+      }
+
+      // Draw character beside tree
+      drawCharacter(centerX + 80, groundY, sway);
+
+      // Draw particles
+      updateAndDrawParticles();
+    }
+
+    // ── Cartoon character with watering can ──
+    function drawCharacter(x, y, sway) {
+      // Gentle breathing bounce
+      const bounce = Math.sin(sway * 6) * 2;
+
+      ctx.save();
+      ctx.translate(x, y + bounce);
+
+      // ── Legs ──
+      ctx.fillStyle = '#5b4a3f';
+      // Left leg
+      ctx.beginPath();
+      ctx.roundRect(-10, -12, 7, 14, 3);
+      ctx.fill();
+      // Right leg
+      ctx.beginPath();
+      ctx.roundRect(3, -12, 7, 14, 3);
+      ctx.fill();
+
+      // ── Shoes ──
+      ctx.fillStyle = '#3d2e24';
+      ctx.beginPath();
+      ctx.ellipse(-6, 0, 6, 4, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(7, 0, 6, 4, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // ── Body / overalls ──
+      ctx.fillStyle = '#4a90d9';
+      ctx.beginPath();
+      ctx.roundRect(-14, -42, 28, 32, 6);
+      ctx.fill();
+
+      // Overall straps
+      ctx.strokeStyle = '#3a78b8';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(-8, -42);
+      ctx.lineTo(-6, -30);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(8, -42);
+      ctx.lineTo(6, -30);
+      ctx.stroke();
+
+      // Overall button
+      ctx.fillStyle = '#ffd93d';
+      ctx.beginPath();
+      ctx.arc(-6, -30, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(6, -30, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // ── Arms ──
+      // Left arm (holding watering can — extended to the left toward tree)
+      ctx.strokeStyle = '#ffcc99';
+      ctx.lineWidth = 6;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(-14, -36);
+      ctx.quadraticCurveTo(-28, -38, -32, -30);
+      ctx.stroke();
+
+      // Hand on left arm
+      ctx.fillStyle = '#ffcc99';
+      ctx.beginPath();
+      ctx.arc(-32, -30, 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Right arm (resting)
+      ctx.strokeStyle = '#ffcc99';
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.moveTo(14, -36);
+      ctx.quadraticCurveTo(22, -28, 18, -18);
+      ctx.stroke();
+
+      // Hand on right arm
+      ctx.fillStyle = '#ffcc99';
+      ctx.beginPath();
+      ctx.arc(18, -18, 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      // ── Watering can ──
+      // Can body
+      ctx.fillStyle = '#78c4e0';
+      ctx.beginPath();
+      ctx.roundRect(-42, -40, 20, 14, 3);
+      ctx.fill();
+
+      // Can handle
+      ctx.strokeStyle = '#5aa8c4';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(-38, -40);
+      ctx.quadraticCurveTo(-32, -52, -26, -40);
+      ctx.stroke();
+
+      // Can spout
+      ctx.strokeStyle = '#5aa8c4';
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(-42, -36);
+      ctx.quadraticCurveTo(-52, -38, -56, -44);
+      ctx.stroke();
+
+      // Water drops from spout (animated)
+      ctx.fillStyle = 'rgba(116, 198, 157, 0.7)';
+      const dropPhase = (sway * 8) % 1;
+      for (let d = 0; d < 3; d++) {
+        const dropY = -44 + (dropPhase + d * 0.33) * 20;
+        const dropAlpha = 1 - (dropPhase + d * 0.33) * 0.5;
+        if (dropAlpha > 0) {
+          ctx.globalAlpha = dropAlpha * 0.6;
+          ctx.beginPath();
+          ctx.ellipse(-56, dropY, 2, 3, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      ctx.globalAlpha = 1;
+
+      // ── Head ──
+      ctx.fillStyle = '#ffcc99';
+      ctx.beginPath();
+      ctx.arc(0, -56, 16, 0, Math.PI * 2);
+      ctx.fill();
+
+      // ── Hair ──
+      ctx.fillStyle = '#5b3a29';
+      ctx.beginPath();
+      ctx.arc(0, -60, 16, Math.PI, Math.PI * 2);
+      ctx.fill();
+
+      // Hair bangs
+      ctx.beginPath();
+      ctx.moveTo(-12, -60);
+      ctx.quadraticCurveTo(-8, -50, -4, -60);
+      ctx.quadraticCurveTo(0, -50, 4, -60);
+      ctx.quadraticCurveTo(8, -50, 12, -60);
+      ctx.fill();
+
+      // ── Eyes ──
+      // Eye whites
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.ellipse(-6, -58, 5, 5.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(6, -58, 5, 5.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Pupils (looking toward tree/left)
+      ctx.fillStyle = '#333';
+      ctx.beginPath();
+      ctx.arc(-7.5, -58, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(4.5, -58, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Eye highlights
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(-8.5, -59.5, 1, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(3.5, -59.5, 1, 0, Math.PI * 2);
+      ctx.fill();
+
+      // ── Blush ──
+      ctx.fillStyle = 'rgba(255, 150, 150, 0.35)';
+      ctx.beginPath();
+      ctx.ellipse(-11, -52, 4, 2.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(11, -52, 4, 2.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // ── Mouth (small smile) ──
+      ctx.strokeStyle = '#c4756e';
+      ctx.lineWidth = 1.5;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.arc(0, -51, 4, 0.2, Math.PI - 0.2);
+      ctx.stroke();
+
+      // ── Hat (gardener hat) ──
+      ctx.fillStyle = '#f0d68a';
+      // Hat brim
+      ctx.beginPath();
+      ctx.ellipse(0, -68, 20, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Hat dome
+      ctx.beginPath();
+      ctx.ellipse(0, -76, 12, 10, 0, Math.PI, Math.PI * 2);
+      ctx.fill();
+
+      // Hat ribbon
+      ctx.fillStyle = '#e8785e';
+      ctx.fillRect(-12, -70, 24, 3);
+
+      ctx.restore();
+    }
+
+    function drawSeed(x, y) {
+      ctx.fillStyle = '#8b7355';
+      ctx.beginPath();
+      ctx.ellipse(x, y, 8, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Small sprout hint
+      ctx.strokeStyle = '#52b788';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x, y - 3);
+      ctx.quadraticCurveTo(x + 3, y - 8, x + 5, y - 10);
+      ctx.stroke();
+    }
+
+    // Seeded random for stable leaves (no flickering)
+    let _leafSeed = 42;
+    function leafRandom() { _leafSeed = (_leafSeed * 16807) % 2147483647; return (_leafSeed - 1) / 2147483646; }
+    function resetLeafSeed() { _leafSeed = 42; }
+
+    function drawSprout(x, y, progress, sway, spinTime) {
+      const stemHeight = 20 + progress * 30;
+      const stemWidth = 3 + progress * 2;
+
+      // Stem
+      ctx.strokeStyle = '#52b788';
+      ctx.lineWidth = stemWidth;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.quadraticCurveTo(x + Math.sin(sway) * 5, y - stemHeight / 2, x + Math.sin(sway) * 8, y - stemHeight);
+      ctx.stroke();
+
+      // Leaves — symmetric left/right
+      const leafSize = 8 + progress * 8;
+
+      // Left leaf
+      ctx.fillStyle = '#74c69d';
+      ctx.beginPath();
+      ctx.ellipse(x - 10, y - stemHeight * 0.5, leafSize * 0.6, leafSize * 0.4, -0.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Right leaf (mirrored)
+      ctx.fillStyle = '#74c69d';
+      ctx.beginPath();
+      ctx.ellipse(x + 10, y - stemHeight * 0.5, leafSize * 0.6, leafSize * 0.4, 0.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Top bud
+      ctx.fillStyle = '#95d5b2';
+      ctx.beginPath();
+      ctx.ellipse(x + Math.sin(sway) * 8, y - stemHeight - 5, 5, 8, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawSmallPlant(x, y, progress, sway, spinTime) {
+      const stemHeight = 50 + progress * 40;
+      const stemWidth = 5 + progress * 3;
+
+      // Main stem
+      ctx.strokeStyle = '#2d6a4f';
+      ctx.lineWidth = stemWidth;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.quadraticCurveTo(
+        x + Math.sin(sway) * 8,
+        y - stemHeight / 2,
+        x + Math.sin(sway) * 12,
+        y - stemHeight
+      );
+      ctx.stroke();
+
+      // Branches — symmetric left/right
+      ctx.strokeStyle = '#40916c';
+      ctx.lineWidth = stemWidth * 0.6;
+
+      // Left branch
+      ctx.beginPath();
+      ctx.moveTo(x + Math.sin(sway) * 3, y - stemHeight * 0.5);
+      ctx.quadraticCurveTo(x - 18, y - stemHeight * 0.6, x - 28, y - stemHeight * 0.7);
+      ctx.stroke();
+
+      // Right branch (mirrored)
+      ctx.beginPath();
+      ctx.moveTo(x + Math.sin(sway) * 3, y - stemHeight * 0.5);
+      ctx.quadraticCurveTo(x + 18, y - stemHeight * 0.6, x + 28, y - stemHeight * 0.7);
+      ctx.stroke();
+
+      // Leaves — symmetric
+      resetLeafSeed();
+      drawLeavesAt(x - 28, y - stemHeight * 0.7, spinTime);
+      drawLeavesAt(x + 28, y - stemHeight * 0.7, spinTime);
+      drawLeavesAt(x + Math.sin(sway) * 12, y - stemHeight - 10, spinTime);
+    }
+
+    function drawYoungTree(x, y, progress, sway, spinTime) {
+      const trunkHeight = 80 + progress * 60;
+      const trunkWidth = 12 + progress * 8;
+
+      // Trunk
+      const gradient = ctx.createLinearGradient(x - trunkWidth/2, y, x + trunkWidth/2, y);
+      gradient.addColorStop(0, '#5c4033');
+      gradient.addColorStop(0.5, '#8b7355');
+      gradient.addColorStop(1, '#5c4033');
+
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.moveTo(x - trunkWidth/2, y);
+      ctx.quadraticCurveTo(
+        x - trunkWidth/3 + Math.sin(sway) * 5,
+        y - trunkHeight / 2,
+        x - trunkWidth/4 + Math.sin(sway) * 8,
+        y - trunkHeight
+      );
+      ctx.quadraticCurveTo(
+        x + trunkWidth/4 + Math.sin(sway) * 8,
+        y - trunkHeight / 2,
+        x + trunkWidth/2,
+        y
+      );
+      ctx.fill();
+
+      // Branches — symmetric pairs
+      ctx.strokeStyle = '#6b5345';
+      ctx.lineWidth = 6;
+
+      const branchPairs = [
+        { heightRatio: 0.35, angle: 0.7, len: 55 },
+        { heightRatio: 0.55, angle: 0.5, len: 65 },
+        { heightRatio: 0.75, angle: 0.3, len: 50 }
+      ];
+
+      branchPairs.forEach((bp, i) => {
+        const branchY = y - trunkHeight * bp.heightRatio;
+        const branchX = x + Math.sin(sway + i * 0.3) * 3;
+
+        // Left branch
+        ctx.beginPath();
+        ctx.moveTo(branchX, branchY);
+        ctx.quadraticCurveTo(
+          branchX - bp.len * 0.5,
+          branchY - bp.len * 0.3,
+          branchX - bp.len * Math.cos(bp.angle * 0.3),
+          branchY - bp.len * 0.6
+        );
+        ctx.stroke();
+        resetLeafSeed();
+        drawLeavesAt(branchX - bp.len * Math.cos(bp.angle * 0.3), branchY - bp.len * 0.6, spinTime + i * 0.5);
+
+        // Right branch (mirrored)
+        ctx.beginPath();
+        ctx.moveTo(branchX, branchY);
+        ctx.quadraticCurveTo(
+          branchX + bp.len * 0.5,
+          branchY - bp.len * 0.3,
+          branchX + bp.len * Math.cos(bp.angle * 0.3),
+          branchY - bp.len * 0.6
+        );
+        ctx.stroke();
+        resetLeafSeed();
+        drawLeavesAt(branchX + bp.len * Math.cos(bp.angle * 0.3), branchY - bp.len * 0.6, spinTime + i * 0.5);
+      });
+
+      // Top foliage
+      resetLeafSeed();
+      drawLeavesAt(x + Math.sin(sway) * 8, y - trunkHeight - 20, spinTime);
+    }
+
+    function drawMatureTree(x, y, progress, sway, spinTime) {
+      const trunkHeight = 140 + progress * 40;
+      const trunkWidth = 20 + progress * 10;
+
+      // Trunk with texture
+      const gradient = ctx.createLinearGradient(x - trunkWidth/2, y, x + trunkWidth/2, y);
+      gradient.addColorStop(0, '#4a3728');
+      gradient.addColorStop(0.3, '#6b5345');
+      gradient.addColorStop(0.5, '#8b7355');
+      gradient.addColorStop(0.7, '#6b5345');
+      gradient.addColorStop(1, '#4a3728');
+
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.moveTo(x - trunkWidth/2, y);
+      ctx.quadraticCurveTo(
+        x - trunkWidth/3 + Math.sin(sway) * 8,
+        y - trunkHeight / 2,
+        x - trunkWidth/4 + Math.sin(sway) * 12,
+        y - trunkHeight
+      );
+      ctx.quadraticCurveTo(
+        x + trunkWidth/4 + Math.sin(sway) * 12,
+        y - trunkHeight / 2,
+        x + trunkWidth/2,
+        y
+      );
+      ctx.fill();
+
+      // Branches — symmetric pairs
+      ctx.strokeStyle = '#5c4033';
+      ctx.lineWidth = 10;
+      ctx.lineCap = 'round';
+
+      const mainBranchPairs = [
+        { heightRatio: 0.4, angle: 0.35, length: 80 },
+        { heightRatio: 0.55, angle: 0.55, length: 75 },
+        { heightRatio: 0.7, angle: 0.75, length: 65 }
+      ];
+
+      mainBranchPairs.forEach((bp, i) => {
+        const branchY = y - trunkHeight * bp.heightRatio;
+        const branchX = x + Math.sin(sway + i * 0.5) * 5;
+
+        // Left branch
+        const leftEndX = branchX - bp.length * Math.cos(bp.angle * 0.3);
+        const leftEndY = branchY - bp.length * 0.65;
+        ctx.beginPath();
+        ctx.moveTo(branchX, branchY);
+        ctx.quadraticCurveTo(
+          branchX + (leftEndX - branchX) * 0.5,
+          branchY - bp.length * 0.35,
+          leftEndX,
+          leftEndY
+        );
+        ctx.stroke();
+        resetLeafSeed();
+        drawFoliageCluster(leftEndX, leftEndY, spinTime + i * 0.5);
+
+        // Right branch (mirrored)
+        const rightEndX = branchX + bp.length * Math.cos(bp.angle * 0.3);
+        const rightEndY = branchY - bp.length * 0.65;
+        ctx.beginPath();
+        ctx.moveTo(branchX, branchY);
+        ctx.quadraticCurveTo(
+          branchX + (rightEndX - branchX) * 0.5,
+          branchY - bp.length * 0.35,
+          rightEndX,
+          rightEndY
+        );
+        ctx.stroke();
+        resetLeafSeed();
+        drawFoliageCluster(rightEndX, rightEndY, spinTime + i * 0.5);
+      });
+
+      // Top foliage
+      resetLeafSeed();
+      drawFoliageCluster(x + Math.sin(sway) * 12, y - trunkHeight - 30, spinTime);
+    }
+
+    function drawBloomingTree(x, y, sway, spinTime) {
+      drawMatureTree(x, y, 1, sway, spinTime);
+
+      // Flowers — symmetric, persistent, vibrant
+      const flowerData = [
+        { dx: -60, dy: -130 },
+        { dx: -35, dy: -155 },
+        { dx: -75, dy: -90 },
+        { dx: -20, dy: -175 },
+      ];
+
+      const colors = ['#ff6b6b', '#ff85a2', '#ffd93d', '#c4a7ff', '#ff8585', '#f472b6'];
+
+      flowerData.forEach((fp, i) => {
+        // Left flower
+        drawFlower(x + fp.dx, y + fp.dy, colors[i % colors.length], spinTime + i * 0.7);
+        // Right flower (mirrored)
+        drawFlower(x - fp.dx, y + fp.dy, colors[(i + 2) % colors.length], spinTime + i * 0.7 + 1);
+      });
+
+      // Center top flower (largest)
+      drawFlower(x, y - 190, '#ffd93d', spinTime + 0.5);
+    }
+
+    function drawFlower(x, y, color, spinTime) {
+      const petalSize = 11;
+      const numPetals = 5;
+
+      // Subtle pulsing glow behind flower
+      ctx.save();
+      ctx.globalAlpha = 0.15 + Math.sin(spinTime * 2) * 0.05;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x, y, petalSize * 1.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      // Petals — continuously spinning
+      ctx.fillStyle = color;
+      for (let i = 0; i < numPetals; i++) {
+        const angle = (i / numPetals) * Math.PI * 2 + spinTime * 3;
+        const petalX = x + Math.cos(angle) * petalSize;
+        const petalY = y + Math.sin(angle) * petalSize;
+
+        ctx.beginPath();
+        ctx.ellipse(petalX, petalY, petalSize * 0.9, petalSize * 0.5, angle, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Center
+      ctx.fillStyle = '#ffd93d';
+      ctx.beginPath();
+      ctx.arc(x, y, 6, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Center highlight
+      ctx.fillStyle = '#fff';
+      ctx.globalAlpha = 0.4;
+      ctx.beginPath();
+      ctx.arc(x - 1.5, y - 1.5, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    function drawLeavesAt(x, y, spinTime) {
+      const leafColors = ['#52b788', '#74c69d', '#95d5b2', '#2d6a4f'];
+
+      for (let i = 0; i < 5; i++) {
+        const offsetX = (leafRandom() - 0.5) * 26;
+        const offsetY = (leafRandom() - 0.5) * 26;
+        const size = 8 + leafRandom() * 8;
+        // Continuous pinwheel rotation — each leaf spins fast
+        const spinSpeed = 2.5 + leafRandom() * 3;
+        const rotation = leafRandom() * Math.PI * 2 + spinTime * spinSpeed;
+
+        ctx.fillStyle = leafColors[Math.floor(leafRandom() * leafColors.length)];
+        ctx.beginPath();
+        ctx.ellipse(x + offsetX, y + offsetY, size, size * 0.6, rotation, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function drawFoliageCluster(x, y, spinTime) {
+      const clusterRadius = 35;
+
+      for (let i = 0; i < 15; i++) {
+        const angle = (i / 15) * Math.PI * 2;
+        const radius = leafRandom() * clusterRadius;
+        const leafX = x + Math.cos(angle) * radius;
+        const leafY = y + Math.sin(angle) * radius - radius * 0.5;
+        const size = 10 + leafRandom() * 8;
+        // Continuous pinwheel rotation — each leaf spins fast
+        const spinSpeed = 2.0 + leafRandom() * 2.5;
+        const rotation = angle + spinTime * spinSpeed;
+
+        const leafColors = ['#2d6a4f', '#40916c', '#52b788', '#74c69d'];
+        ctx.fillStyle = leafColors[Math.floor(leafRandom() * leafColors.length)];
+
+        ctx.beginPath();
+        ctx.ellipse(leafX, leafY, size, size * 0.6, rotation, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function updateAndDrawParticles() {
+      for (let i = treeState.particles.length - 1; i >= 0; i--) {
+        const p = treeState.particles[i];
+
+        if (p.type === 'water') {
+          p.x += p.vx;
+          p.y += p.vy;
+          p.life -= 0.02;
+        } else if (p.type === 'flower') {
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vy += 0.1; // gravity
+          p.rotation += p.rotationSpeed;
+          p.life -= p.decay;
+        }
+
+        if (p.life <= 0) {
+          treeState.particles.splice(i, 1);
+          continue;
+        }
+
+        ctx.globalAlpha = p.life;
+
+        if (p.type === 'water') {
+          ctx.fillStyle = '#74c69d';
+          ctx.beginPath();
+          ctx.ellipse(p.x, p.y, 3, 5, 0, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (p.type === 'flower') {
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.rotation);
+
+          // Draw simple flower
+          ctx.fillStyle = p.color;
+          for (let j = 0; j < 5; j++) {
+            const angle = (j / 5) * Math.PI * 2;
+            const px = Math.cos(angle) * p.size * 0.5;
+            const py = Math.sin(angle) * p.size * 0.5;
+            ctx.beginPath();
+            ctx.arc(px, py, p.size * 0.3, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.fillStyle = '#ffd93d';
+          ctx.beginPath();
+          ctx.arc(0, 0, p.size * 0.2, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.restore();
+        }
+
+        ctx.globalAlpha = 1;
+      }
+    }
+
+    function startAnimation() {
+      function animate() {
+        drawTree();
+        requestAnimationFrame(animate);
+      }
+      animate();
+    }
+
+    // Start the app
+    init();
+  </script>
+</body>
+</html>
